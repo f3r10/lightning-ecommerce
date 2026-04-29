@@ -1,0 +1,6 @@
+[workspace]
+  members = ["node-service"]
+  resolver = "2"
+
+  [patch.crates-io]
+  ldk-node = { path = "../ldk-node-original" }
