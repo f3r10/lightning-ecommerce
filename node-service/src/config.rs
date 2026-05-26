@@ -44,7 +44,7 @@ use anyhow::{Context, anyhow, Result};
             lsp_address: env::var("LSP_ADDRESS")
                 .context("LSP_ADDRESS not set")?,
 
-            lsp_token: env::var("LSP_TOKEN").ok(),
+            lsp_token: env::var("LSP_TOKEN").ok().filter(|s| !s.is_empty()),
 
             storage_dir: env::var("STORAGE_DIR")
                 .unwrap_or_else(|_| "./data/ldk".to_string()),
@@ -57,7 +57,7 @@ use anyhow::{Context, anyhow, Result};
                 .parse()
                 .context("Failed to parse PORT as u16")?,
 
-            mnemonic_encrypt_key: env::var("MNEMONIC_ENCRYPT_KEY").ok(),
+            mnemonic_encrypt_key: env::var("MNEMONIC_ENCRYPT_KEY").ok().filter(|s| !s.is_empty()),
         })
      }
   }
