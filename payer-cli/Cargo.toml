@@ -1,0 +1,9 @@
+[package]
+name = "payer-cli"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+ldk-node = { path = "../../ldk-node-original" }
+tokio = { version = "1", features = ["full"] }
+anyhow = "1"
