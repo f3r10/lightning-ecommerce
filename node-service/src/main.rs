@@ -22,19 +22,17 @@ async fn main() -> anyhow::Result<()> {
       //Ok(())
     let config = AppConfig::from_env()?;
     let entropy = entropy::load_or_create(&config)?;
-    let node = node::build_node(&config, entropy)?;
     let db = Arc::new(AppDb::open(&config.storage_dir)?);
 
-
+    let node = node::build_node(&config, entropy)?;
     node.start()?;
     tracing::info!("Node started. ID: {}", node.node_id());
-    // block until synced
-    tokio::time::sleep(Duration::from_secs(10)).await;
-    tracing::info!("Status: {:?}", node.status());
 
-    // Connect to the LSP peer. Required before receive_via_jit_channel can work —
+    // Connect to the LSP peer immediately. Required before receive_via_jit_channel can work —
     // ldk-node does not auto-connect from set_liquidity_source_lsps2 alone.
-    node::connect_to_lsp(&node, &config)?;
+    let lsp_node_id: ldk_node::bitcoin::secp256k1::PublicKey = config.lsp_node_id.parse().expect("invalid LSP_NODE_ID");
+    let lsp_address = config.lsp_address.parse().expect("invalid LSP_ADDRESS");
+    node::connect_to_lsp(&node, lsp_node_id, lsp_address)?;
 
     // Wait for the first esplora sync to complete before accepting requests.
     // Without this, receive_via_jit_channel can fail because the node doesn't
@@ -42,10 +40,44 @@ async fn main() -> anyhow::Result<()> {
     tracing::info!("Waiting for initial sync...");
     loop {
         if node.status().latest_onchain_wallet_sync_timestamp.is_some() {
-            tracing::info!("Sync complete, ready to accept requests.");
+            tracing::info!("Sync complete.");
             break;
         }
-        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+        tokio::time::sleep(Duration::from_secs(1)).await;
+    }
+
+    // If a JIT channel from a previous session exists, wait for it to become live
+    // (peer connected + channel ready) before accepting payment requests. This prevents
+    // HTLCIntercepted events from forwarding to a peer-disconnected channel, which
+    // causes immediate PeerOffline failures in send_htlc.
+    // is_usable: channel_ready exchanged, peer connected, no shutdown in progress.
+    tracing::info!("Checking LSP channel state...");
+    let mut lsp_channel_ready = false;
+    for _ in 0..30u8 {
+        let channels = node.list_channels();
+        let lsp_channel = channels.iter().find(|ch| ch.counterparty_node_id == lsp_node_id);
+        match lsp_channel {
+            None => {
+                tracing::info!("No existing LSP channel — will open JIT on first payment.");
+                lsp_channel_ready = true;
+                break;
+            }
+            Some(ch) if ch.is_usable => {
+                tracing::info!("LSP channel is live (outbound_capacity={} sats).", ch.outbound_capacity_msat / 1000);
+                lsp_channel_ready = true;
+                break;
+            }
+            Some(ch) => {
+                tracing::debug!(
+                    "LSP channel not yet usable (is_usable={}, is_channel_ready={}), waiting...",
+                    ch.is_usable, ch.is_channel_ready
+                );
+            }
+        }
+        tokio::time::sleep(Duration::from_secs(1)).await;
+    }
+    if !lsp_channel_ready {
+        tracing::warn!("LSP channel did not become live within 30s; payments may fail until the LSP reconnects.");
     }
 
     // spawn event loop
