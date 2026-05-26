@@ -1,5 +1,5 @@
 [workspace]
-  members = ["node-service"]
+  members = ["node-service", "payer-cli", "lsp-service"]
   resolver = "2"
 
   [patch.crates-io]
