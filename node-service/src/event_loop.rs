@@ -22,6 +22,7 @@ pub async fn run(node: Arc<Node>, db: Arc<AppDb>) {
             }
             Event::ChannelPending { channel_id, ..} => {
                 tracing::info!("Channel pending (JIT opening): {}", channel_id);
+                node.event_handled().unwrap();
             }
             event => {
                 tracing::debug!("Unhandle event: {:?}", event);
