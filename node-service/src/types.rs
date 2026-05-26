@@ -11,6 +11,9 @@ use axum::{
 };
 use serde_json::json;
 use thiserror::Error;
+use ldk_node::bitcoin::secp256k1::PublicKey;
+use ldk_node::lightning::ln::msgs::SocketAddress;
+
 
 
 use crate::config::AppConfig;
@@ -47,6 +50,19 @@ pub struct AppState{
     pub node: Arc<Node>,
     pub db: Arc<AppDb>,
     pub config: AppConfig
+}
+
+
+#[derive(Deserialize, Debug)]
+pub struct LspInfoResponse {
+    pub uris: Vec<String>,
+    pub min_initial_lsp_balance_sat: String,
+    // Add other fields as needed
+}
+
+pub struct LspConfig {
+    pub node_id: PublicKey,
+    pub address: SocketAddress,
 }
 
 
