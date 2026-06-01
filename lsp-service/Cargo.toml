@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-ldk-node = { path = "../../ldk-node-original" }
+ldk-node = { git = "https://github.com/lightningdevkit/ldk-node.git", rev = "53268f2e0b530f90f2c548f9c7f01695cf14c7e0" }
+
 tokio = { version = "1", features = ["full"] }
 anyhow = "1"
