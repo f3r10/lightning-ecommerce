@@ -42,6 +42,8 @@ pub struct NodeInfoResponse {
     pub network: String,
     pub num_channels: usize,
     pub lsp_connected: bool,
+    pub onchain_balance_sats: u64,
+    pub onchain_address: String,
 }
 
 #[derive(Clone)]
@@ -77,10 +79,13 @@ pub enum AppError {
     Node(#[from] ldk_node::NodeError),
 
     #[error("Database error: {0}")]
-    Database(#[from] rusqlite::Error), // <-- Update this to match your DB crate
+    Database(#[from] rusqlite::Error),
 
     #[error("Anyhow error: {0}")]
     Anyhow(#[from] anyhow::Error),
+
+    #[error("{0}")]
+    Validation(String),
 }
 
 /// Tell axum how to convert `AppError` into an HTTP response.
@@ -89,9 +94,11 @@ impl IntoResponse for AppError {
         // Map different error types to appropriate HTTP status codes
         let (status, error_message) = match self {
             AppError::InvoiceDescription(err) => {
-                // If the user provided a bad description, it's a 400 Bad Request
                 (StatusCode::BAD_REQUEST, err.to_string())
-            }
+            },
+            AppError::Validation(msg) => {
+                (StatusCode::UNPROCESSABLE_ENTITY, msg)
+            },
             AppError::Node(err) => {
                 tracing::error!("LDK Node error: {}", err);
                 (StatusCode::INTERNAL_SERVER_ERROR, format!("Node error: {err:?}"))
