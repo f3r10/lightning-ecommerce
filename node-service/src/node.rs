@@ -1,5 +1,6 @@
 use ldk_node::bitcoin::Network;
 use ldk_node::Builder;
+use ldk_node::config::Config;
 use ldk_node::lightning::ln::msgs::SocketAddress;
 use ldk_node::bitcoin::secp256k1::PublicKey;
 use crate::AppConfig;
@@ -10,15 +11,23 @@ use std::sync::Arc;
 use std::str::FromStr;
 
 pub fn build_node(config: &AppConfig, entropy: NodeEntropy) -> anyhow::Result<Arc<Node>> {
-    let mut builder = Builder::new();
-
-    builder.set_network(config.network);
-    builder.set_chain_source_esplora(config.esplora_url.clone(), None);
-    builder.set_gossip_source_p2p();
-    builder.set_storage_dir_path(config.storage_dir.clone());
-
     let lsp_node_id = PublicKey::from_str(&config.lsp_node_id)?;
     let lsp_address = config.lsp_address.parse::<SocketAddress>()?;
+
+    let mut node_config = Config::default();
+    node_config.network = config.network;
+    node_config.storage_dir_path = config.storage_dir.clone();
+
+    // The LSP opens JIT Anchor channels on our behalf. Exempt it from the per-channel
+    // on-chain reserve requirement — the LSP is trusted and will broadcast the anchor
+    // commitment tx if needed.
+    if let Some(ref mut anchor_cfg) = node_config.anchor_channels_config {
+        anchor_cfg.trusted_peers_no_reserve.push(lsp_node_id);
+    }
+
+    let mut builder = Builder::from_config(node_config);
+    builder.set_chain_source_esplora(config.esplora_url.clone(), None);
+    builder.set_gossip_source_p2p();
     builder.set_liquidity_source_lsps2(lsp_node_id, lsp_address, config.lsp_token.clone());
 
     let node = builder.build(entropy)?;
