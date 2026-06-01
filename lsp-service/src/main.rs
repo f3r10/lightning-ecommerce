@@ -3,6 +3,7 @@ use ldk_node::lightning::ln::msgs::SocketAddress;
 use ldk_node::{Builder, Event};
 use ldk_node::liquidity::LSPS2ServiceConfig;
 use ldk_node::entropy::{NodeEntropy, generate_entropy_mnemonic};
+use ldk_node::logger::LogLevel;
 use std::time::Duration;
 
 const DATA_DIR: &str = "./data/lsp";
@@ -39,7 +40,7 @@ async fn main() -> anyhow::Result<()> {
         min_payment_size_msat: 1_000,
         max_payment_size_msat: 100_000_000_000,
         client_trusts_lsp: true,
-        disable_client_reserve: false,
+        disable_client_reserve: true,
     };
 
     let mut builder = Builder::new();
@@ -49,6 +50,7 @@ async fn main() -> anyhow::Result<()> {
     builder.set_storage_dir_path(DATA_DIR.to_string());
     builder.set_liquidity_provider_lsps2(lsps2_config);
     builder.set_listening_addresses(vec![LISTEN_ADDR.parse::<SocketAddress>()?])?;
+    builder.set_filesystem_logger(None, Some(LogLevel::Trace));
 
     let node = builder.build(entropy)?;
 
@@ -73,9 +75,11 @@ async fn main() -> anyhow::Result<()> {
     let balance = node.list_balances().spendable_onchain_balance_sats;
     println!("Onchain balance: {} sats", balance);
 
-    if balance < 200_000 {
+    // Minimum to cover one JIT channel at the current payment floor (~18,563 sats
+    // channel + ~1,500 sats funding-tx fee at typical mutinynet fee rates).
+    if balance < 5_000 {
         println!("\nNeeds funding to open JIT channels.");
-        println!("Send >=200,000 sats to the address above from https://faucet.mutinynet.com/");
+        println!("Send >=25,000 sats to the address above from https://faucet.mutinynet.com/");
         println!("Then restart lsp-service.");
         node.stop()?;
         return Ok(());
