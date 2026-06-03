@@ -33,6 +33,10 @@ lightning-ecommerce/
 ├── lsp-service/        Local LSPS2 Lightning Service Provider (test only)
 ├── node-service/       Merchant payment backend (HTTP API + LDK node)
 ├── payer-cli/          Test tool that simulates a Lightning payer
+├── packages/
+│   ├── core/           @lightning-ecommerce/core — node-service HTTP client + types
+│   ├── nextjs/         @lightning-ecommerce/nextjs — Next.js route handler, hooks, UI
+│   └── create/         @lightning-ecommerce/create — CLI scaffold tool (npx)
 ├── data/
 │   ├── lsp/            lsp-service data dir (SQLite, seed, logs)
 │   ├── ldk/            node-service data dir (SQLite, seed, logs)
@@ -46,12 +50,21 @@ lightning-ecommerce/
 
 ## Prerequisites
 
+### Rust services (`node-service`, `lsp-service`, `payer-cli`)
+
 - **Rust** (stable, 2024 edition) — install via [rustup](https://rustup.rs)
 - **sqlite3** CLI — used to inspect and reset database state
+
+### npm packages (`packages/`)
+
+- **Node.js** ≥ 18 — install via [nodejs.org](https://nodejs.org) or [nvm](https://github.com/nvm-sh/nvm)
+- **pnpm** ≥ 9 — `npm install -g pnpm`
 
 ---
 
 ## Build
+
+### Rust services
 
 ```bash
 git clone https://github.com/f3r10/lightning-ecommerce
@@ -60,6 +73,15 @@ cargo build
 ```
 
 This builds all three crates. All dependencies, including `ldk-node`, are fetched automatically from the upstream repositories — no local clones required.
+
+### npm packages
+
+```bash
+pnpm install
+pnpm -r build
+```
+
+This installs dependencies and builds all three packages (`core`, `nextjs`, `create`) under `packages/`. The Rust and npm workspaces are independent — you only need to build the npm packages if you are working on the Vercel integration.
 
 ---
 
