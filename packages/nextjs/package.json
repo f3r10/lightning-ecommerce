@@ -43,7 +43,9 @@
     "server-only": "^0.0.1"
   },
   "devDependencies": {
+    "@types/node": "^22.0.0",
     "@types/react": "^18.3.0",
+    "msw": "^2.6.0",
     "typescript": "^5.7.0",
     "tsup": "^8.3.0",
     "vitest": "^2.1.0"

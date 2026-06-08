@@ -1,4 +1,4 @@
 import "server-only";
 
-// Server-side utilities (config, proxy helpers).
-export {};
+export { getServerConfig } from "./config.js";
+export type { NodeServiceConfig } from "@lightning-ecommerce/core";
