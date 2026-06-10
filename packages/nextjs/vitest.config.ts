@@ -3,7 +3,6 @@ import path from "node:path";
 
 export default defineConfig({
   test: {
-    environment: "node",
     alias: {
       // server-only throws when imported outside Next.js — stub it for tests.
       "server-only": path.resolve(
@@ -11,5 +10,10 @@ export default defineConfig({
         "src/__tests__/stubs/server-only.ts",
       ),
     },
+    // Route handler tests run in Node; hook tests need a DOM.
+    environmentMatchGlobs: [
+      ["src/__tests__/route.test.ts", "node"],
+      ["src/__tests__/use*.test.ts", "jsdom"],
+    ],
   },
 });
