@@ -1,5 +1,14 @@
 "use client";
 
-// @lightning-ecommerce/nextjs — client entry
-// React hooks and UI components
-export {};
+export { useInvoice } from "./hooks/useInvoice.js";
+export { usePaymentStatus } from "./hooks/usePaymentStatus.js";
+export type { UseInvoiceResult } from "./hooks/useInvoice.js";
+export type {
+  PaymentStatus,
+  UsePaymentStatusOptions,
+  UsePaymentStatusResult,
+} from "./hooks/usePaymentStatus.js";
+export type {
+  CreateInvoiceRequest,
+  InvoiceResponse,
+} from "@lightning-ecommerce/core";
