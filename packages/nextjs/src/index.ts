@@ -8,6 +8,8 @@ export type {
   UsePaymentStatusOptions,
   UsePaymentStatusResult,
 } from "./hooks/usePaymentStatus.js";
+export { LightningCheckout } from "./components/LightningCheckout.js";
+export type { LightningCheckoutProps } from "./components/LightningCheckout.js";
 export type {
   CreateInvoiceRequest,
   InvoiceResponse,
