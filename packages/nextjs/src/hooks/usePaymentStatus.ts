@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { InvoiceResponse } from "@lightning-ecommerce/core";
 
-export type PaymentStatus = "pending" | "succeeded" | "expired" | null;
+export type PaymentStatus = "pending" | "opening_channel" | "succeeded" | "expired" | null;
 
 export interface UsePaymentStatusOptions {
   /** Called once when the payment is confirmed. */

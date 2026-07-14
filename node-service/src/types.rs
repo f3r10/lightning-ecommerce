@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::sync::atomic::AtomicUsize;
 
 use ldk_node::Node;
 use serde::Deserialize;
@@ -47,11 +48,13 @@ pub struct NodeInfoResponse {
 }
 
 #[derive(Clone)]
-
-pub struct AppState{
+pub struct AppState {
     pub node: Arc<Node>,
     pub db: Arc<AppDb>,
-    pub config: AppConfig
+    pub config: AppConfig,
+    /// Number of JIT channels currently opening. Incremented on ChannelPending,
+    /// decremented on ChannelReady. Used to surface "opening_channel" status.
+    pub channel_pending_count: Arc<AtomicUsize>,
 }
 
 

@@ -1,3 +1,4 @@
+use std::sync::atomic::Ordering;
 use ldk_node::lightning_invoice::{Bolt11InvoiceDescription, Description};
 use crate::db::NewOrder;
 use crate::types::{AppError, AppState, CreateInvoiceRequest, InvoiceResponse};
@@ -71,11 +72,19 @@ pub async fn get_invoice(
         .get_order(&payment_hash)?
         .ok_or_else(|| anyhow::anyhow!("invoice not found"))?;
 
+    let status = if order.status == "pending"
+        && state.channel_pending_count.load(Ordering::Relaxed) > 0
+    {
+        "opening_channel".to_string()
+    } else {
+        order.status
+    };
+
     Ok(Json(InvoiceResponse {
         payment_hash: order.payment_hash,
         bolt11: order.bolt11,
         amount_msat: order.amount_msat,
         expiry_unix: order.created_at + 3600,
-        status: order.status,
+        status,
     }))
 }
