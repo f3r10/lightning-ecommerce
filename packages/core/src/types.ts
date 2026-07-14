@@ -21,7 +21,7 @@ export interface InvoiceResponse {
   /** Unix timestamp (seconds) when the invoice expires. */
   expiry_unix: number;
   /** Current payment status. */
-  status: "pending" | "succeeded";
+  status: "pending" | "opening_channel" | "succeeded";
 }
 
 export interface NodeInfoResponse {

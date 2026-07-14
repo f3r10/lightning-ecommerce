@@ -1,5 +1,6 @@
 use crate::{config::AppConfig, db::AppDb, types::AppState};
 use std::sync::Arc;
+use std::sync::atomic::AtomicUsize;
 use std::time::Duration;
 
 mod config;
@@ -81,11 +82,12 @@ async fn main() -> anyhow::Result<()> {
     }
 
     // spawn event loop
-    tokio::spawn(event_loop::run(Arc::clone(&node), Arc::clone(&db)));
+    let channel_pending_count = Arc::new(AtomicUsize::new(0));
+    tokio::spawn(event_loop::run(Arc::clone(&node), Arc::clone(&db), Arc::clone(&channel_pending_count)));
 
     // start the HTTP server
     let port = config.port;
-    let state = AppState {node: Arc::clone(&node), db, config};
+    let state = AppState { node: Arc::clone(&node), db, config, channel_pending_count };
     let app = api::router(state);
     let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", port)).await?;
     tracing::info!("Listening on port {}", port);

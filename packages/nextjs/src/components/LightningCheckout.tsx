@@ -68,6 +68,13 @@ const styles = {
     textDecoration: "none",
     color: "inherit",
   },
+  openingChannelText: {
+    fontSize: "15px",
+    fontWeight: 500,
+    color: "#f7931a",
+    margin: 0,
+    textAlign: "center" as const,
+  },
   successText: {
     fontSize: "18px",
     fontWeight: 600,
@@ -108,7 +115,7 @@ export function LightningCheckout({
     }
   }, [invoice, invoiceError, checkoutState, onError]);
 
-  usePaymentStatus(
+  const { status: paymentStatus } = usePaymentStatus(
     checkoutState === "awaiting" ? (invoice?.payment_hash ?? null) : null,
     {
       onSuccess: (inv) => {
@@ -167,18 +174,26 @@ export function LightningCheckout({
   if (checkoutState === "awaiting" && invoice) {
     return (
       <div className={className} style={styles.container}>
-        <QRCode value={invoice.bolt11} size={240} />
-        <div style={styles.actions}>
-          <CopyButton text={invoice.bolt11} />
-          <a
-            href={`lightning:${invoice.bolt11}`}
-            style={styles.walletLink}
-            rel="noopener noreferrer"
-          >
-            Open in wallet
-          </a>
-        </div>
-        <ExpiryCountdown expiryUnix={invoice.expiry_unix} />
+        {paymentStatus === "opening_channel" ? (
+          <p style={styles.openingChannelText}>
+            ⚡ Opening Lightning channel… this takes ~30 s
+          </p>
+        ) : (
+          <>
+            <QRCode value={invoice.bolt11} size={240} />
+            <div style={styles.actions}>
+              <CopyButton text={invoice.bolt11} />
+              <a
+                href={`lightning:${invoice.bolt11}`}
+                style={styles.walletLink}
+                rel="noopener noreferrer"
+              >
+                Open in wallet
+              </a>
+            </div>
+            <ExpiryCountdown expiryUnix={invoice.expiry_unix} />
+          </>
+        )}
       </div>
     );
   }
