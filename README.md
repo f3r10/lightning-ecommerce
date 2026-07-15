@@ -85,6 +85,104 @@ This installs dependencies and builds all three packages (`core`, `nextjs`, `cre
 
 ---
 
+## npm packages
+
+The `packages/` directory contains three npm packages that make it easy to accept Lightning payments from a Next.js app. They communicate with a running `node-service` instance over HTTP and keep the API key server-side.
+
+| Package | npm name | Purpose |
+|---|---|---|
+| `packages/core` | `@lightning-ecommerce/core` | Type-safe HTTP client and TypeScript types for node-service |
+| `packages/nextjs` | `@lightning-ecommerce/nextjs` | Next.js App Router proxy handler, React hooks, and drop-in checkout UI |
+| `packages/create` | `@lightning-ecommerce/create` | One-time scaffold CLI (`npx`) |
+
+### Quick start — scaffold into an existing Next.js project
+
+Inside your Next.js project directory:
+
+```bash
+npx @lightning-ecommerce/create@latest
+```
+
+The CLI will:
+1. Detect App Router layout and TypeScript settings automatically
+2. Prompt for your `node-service` URL and API key
+3. Write `app/api/lightning/route.ts` (the server-side proxy)
+4. Append `LIGHTNING_NODE_URL` and `LIGHTNING_API_KEY` to `.env.local`
+5. Run `npm install @lightning-ecommerce/nextjs` (or pnpm/yarn/bun — whichever lock file it finds)
+
+### Manual setup
+
+```bash
+npm install @lightning-ecommerce/nextjs
+```
+
+**1. Create the API route** (`app/api/lightning/route.ts`):
+
+```typescript
+export { GET, POST } from "@lightning-ecommerce/nextjs/server/route";
+```
+
+**2. Set environment variables** (`.env.local`):
+
+```dotenv
+LIGHTNING_NODE_URL=http://localhost:3001   # your node-service URL
+LIGHTNING_API_KEY=test123                  # your ADMIN_API_KEY
+```
+
+**3. Add the checkout widget** to any client page:
+
+```tsx
+"use client";
+import { LightningCheckout } from "@lightning-ecommerce/nextjs";
+
+export default function CheckoutPage() {
+  return (
+    <LightningCheckout
+      description="Order #42"
+      amount_msat={20_000_000}
+      onSuccess={(invoice) => console.log("Paid!", invoice.payment_hash)}
+    />
+  );
+}
+```
+
+`LightningCheckout` manages the full payment flow: idle → invoice creation → QR code display with copy button and expiry countdown → payment confirmation → success or error state.
+
+### API reference — `@lightning-ecommerce/nextjs`
+
+**Client** (`import { ... } from "@lightning-ecommerce/nextjs"`):
+
+| Export | Kind | Description |
+|---|---|---|
+| `LightningCheckout` | Component | Drop-in checkout widget |
+| `useInvoice` | Hook | Create and track a BOLT11 invoice |
+| `usePaymentStatus` | Hook | Poll an invoice hash for payment confirmation |
+
+**Server** (`import { ... } from "@lightning-ecommerce/nextjs/server"`):
+
+| Export | Kind | Description |
+|---|---|---|
+| `proxyInvoiceCreate` | Function | Proxy a `POST /api/lightning/invoice` request to node-service |
+| `proxyInvoiceGet` | Function | Proxy a `GET /api/lightning/invoice/:hash` request to node-service |
+| `getServerConfig` | Function | Read and validate `LIGHTNING_NODE_URL` / `LIGHTNING_API_KEY` from env |
+
+**Route handler** (`import { ... } from "@lightning-ecommerce/nextjs/server/route"`):
+
+| Export | Kind | Description |
+|---|---|---|
+| `GET` | Next.js handler | Routes `GET /api/lightning/invoice/:hash` to the proxy |
+| `POST` | Next.js handler | Routes `POST /api/lightning/invoice` to the proxy |
+
+### Running the test suite
+
+```bash
+pnpm -r test
+```
+
+Runs vitest across all three packages (65 tests total: 12 core client tests, 16 route handler and hook tests, 10 component tests, 31 scaffold CLI utility tests).
+
+---
+
 ## Step 1 — Start lsp-service
 
 `lsp-service` is a minimal LSPS2 Lightning node that opens JIT channels to `node-service`. It needs on-chain funds to fund those channels.
