@@ -32,17 +32,26 @@ impl AppConfig {
         };
 
         // Parse indexed LSP entries: LSP_1_NODE_ID, LSP_1_ADDRESS, LSP_1_TOKEN, LSP_2_*, ...
-        // Scanning stops at the first missing index.
+        // Scanning stops when both NODE_ID and ADDRESS are absent. If only one is present,
+        // the entry is incomplete and we return an error rather than silently truncating.
         let mut lsps = Vec::new();
         let mut i = 1u32;
         loop {
-            match (env::var(format!("LSP_{i}_NODE_ID")), env::var(format!("LSP_{i}_ADDRESS"))) {
+            let node_id = env::var(format!("LSP_{i}_NODE_ID"));
+            let address = env::var(format!("LSP_{i}_ADDRESS"));
+            match (node_id, address) {
                 (Ok(node_id), Ok(address)) => {
                     let token = env::var(format!("LSP_{i}_TOKEN")).ok().filter(|s| !s.is_empty());
                     lsps.push(LspEntry { node_id, address, token });
                     i += 1;
                 }
-                _ => break,
+                (Err(_), Err(_)) => break,
+                (Ok(_), Err(_)) => return Err(anyhow!(
+                    "LSP_{i}_NODE_ID is set but LSP_{i}_ADDRESS is missing."
+                )),
+                (Err(_), Ok(_)) => return Err(anyhow!(
+                    "LSP_{i}_ADDRESS is set but LSP_{i}_NODE_ID is missing."
+                )),
             }
         }
 
