@@ -70,7 +70,7 @@ async fn close_channels(
     let mut errors: Vec<String> = Vec::new();
 
     for ch in channels {
-        match state.node.close_channel(&ch.user_channel_id, ch.counterparty_node_id) {
+        match state.node.close_channel(&ch.user_channel_id, ch.counterparty.node_id) {
             Ok(()) => closed += 1,
             Err(e) => errors.push(format!("{}: {:?}", ch.channel_id, e)),
         }

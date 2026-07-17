@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-ldk-node = { default-features = false, git = "https://github.com/lightningdevkit/ldk-node.git", rev = "53268f2e0b530f90f2c548f9c7f01695cf14c7e0" }
+ldk-node = { default-features = false, git = "https://github.com/lightningdevkit/ldk-node.git", rev = "056447c28221be02c3d39f8c6ae430a67ebbd850" }
 axum = { version = "0.7", features = ["macros"] }
 tokio = { version = "1", features = ["full"] }
 serde = { version = "1", features = ["derive"] }

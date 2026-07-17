@@ -48,7 +48,7 @@ async fn main() -> anyhow::Result<()> {
     builder.set_chain_source_esplora("https://mutinynet.com/api".to_string(), None);
     builder.set_gossip_source_p2p();
     builder.set_storage_dir_path(DATA_DIR.to_string());
-    builder.set_liquidity_provider_lsps2(lsps2_config);
+    builder.enable_liquidity_provider(lsps2_config);
     builder.set_listening_addresses(vec![LISTEN_ADDR.parse::<SocketAddress>()?])?;
     builder.set_filesystem_logger(None, Some(LogLevel::Trace));
 

@@ -21,14 +21,14 @@ pub fn build_node(config: &AppConfig, entropy: NodeEntropy) -> anyhow::Result<Ar
     // The LSP opens JIT Anchor channels on our behalf. Exempt it from the per-channel
     // on-chain reserve requirement — the LSP is trusted and will broadcast the anchor
     // commitment tx if needed.
-    if let Some(ref mut anchor_cfg) = node_config.anchor_channels_config {
-        anchor_cfg.trusted_peers_no_reserve.push(lsp_node_id);
-    }
+    node_config.anchor_channels_config.trusted_peers_no_reserve.push(lsp_node_id);
 
     let mut builder = Builder::from_config(node_config);
     builder.set_chain_source_esplora(config.esplora_url.clone(), None);
     builder.set_gossip_source_p2p();
-    builder.set_liquidity_source_lsps2(lsp_node_id, lsp_address, config.lsp_token.clone());
+    // trust_peer_0conf=true: LSP uses zero-conf JIT channels so we must accept
+    // unconfirmed channel opens from it.
+    builder.add_liquidity_source(lsp_node_id, lsp_address, config.lsp_token.clone(), true);
 
     let node = builder.build(entropy)?;
     Ok(Arc::new(node))
@@ -46,7 +46,7 @@ pub async fn build_node_dynamic(config: &AppConfig, discovery_url: &str, entropy
     builder.set_storage_dir_path(config.storage_dir.clone());
 
     // 2. Plug in the discovered credentials
-    builder.set_liquidity_source_lsps2(lsp.node_id, lsp.address.clone(), None);
+    builder.add_liquidity_source(lsp.node_id, lsp.address.clone(), None, true);
 
     let node = builder.build(entropy)?;
     Ok((Arc::new(node), lsp))
