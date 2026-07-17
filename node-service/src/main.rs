@@ -29,11 +29,17 @@ async fn main() -> anyhow::Result<()> {
     node.start()?;
     tracing::info!("Node started. ID: {}", node.node_id());
 
-    // Connect to the LSP peer immediately. Required before receive_via_jit_channel can work —
-    // ldk-node does not auto-connect from set_liquidity_source_lsps2 alone.
-    let lsp_node_id: ldk_node::bitcoin::secp256k1::PublicKey = config.lsp_node_id.parse().expect("invalid LSP_NODE_ID");
-    let lsp_address = config.lsp_address.parse().expect("invalid LSP_ADDRESS");
-    node::connect_to_lsp(&node, lsp_node_id, lsp_address)?;
+    // Connect to every configured LSP. ldk-node needs an active peer connection
+    // before it can negotiate JIT channels via LSPS2.
+    let lsp_pubkeys: Vec<ldk_node::bitcoin::secp256k1::PublicKey> = config.lsps.iter()
+        .map(|lsp| lsp.node_id.parse().expect("invalid LSP node_id in config"))
+        .collect();
+
+    for lsp in &config.lsps {
+        let pubkey = lsp.node_id.parse().expect("invalid LSP node_id in config");
+        let address = lsp.address.parse().expect("invalid LSP address in config");
+        node::connect_to_lsp(&node, pubkey, address)?;
+    }
 
     // Wait for the first esplora sync to complete before accepting requests.
     // Without this, receive_via_jit_channel can fail because the node doesn't
@@ -47,38 +53,34 @@ async fn main() -> anyhow::Result<()> {
         tokio::time::sleep(Duration::from_secs(1)).await;
     }
 
-    // If a JIT channel from a previous session exists, wait for it to become live
-    // (peer connected + channel ready) before accepting payment requests. This prevents
-    // HTLCIntercepted events from forwarding to a peer-disconnected channel, which
-    // causes immediate PeerOffline failures in send_htlc.
+    // If JIT channels from a previous session exist, wait until at least one is
+    // live before accepting payment requests. This prevents HTLCIntercepted events
+    // from being forwarded to a peer-disconnected channel (immediate PeerOffline).
     // is_usable: channel_ready exchanged, peer connected, no shutdown in progress.
-    tracing::info!("Checking LSP channel state...");
+    tracing::info!("Checking LSP channel state ({} LSP(s) configured)...", lsp_pubkeys.len());
     let mut lsp_channel_ready = false;
     for _ in 0..30u8 {
         let channels = node.list_channels();
-        let lsp_channel = channels.iter().find(|ch| ch.counterparty.node_id == lsp_node_id);
-        match lsp_channel {
-            None => {
-                tracing::info!("No existing LSP channel — will open JIT on first payment.");
-                lsp_channel_ready = true;
-                break;
-            }
-            Some(ch) if ch.is_usable => {
-                tracing::info!("LSP channel is live (outbound_capacity={} sats).", ch.outbound_capacity_msat / 1000);
-                lsp_channel_ready = true;
-                break;
-            }
-            Some(ch) => {
-                tracing::debug!(
-                    "LSP channel not yet usable (is_usable={}, is_channel_ready={}), waiting...",
-                    ch.is_usable, ch.is_channel_ready
-                );
-            }
+        let lsp_channels: Vec<_> = channels.iter()
+            .filter(|ch| lsp_pubkeys.contains(&ch.counterparty.node_id))
+            .collect();
+
+        if lsp_channels.is_empty() {
+            tracing::info!("No existing LSP channels — will open JIT on first payment.");
+            lsp_channel_ready = true;
+            break;
         }
+        if lsp_channels.iter().any(|ch| ch.is_usable) {
+            let usable = lsp_channels.iter().filter(|ch| ch.is_usable).count();
+            tracing::info!("{}/{} LSP channel(s) live.", usable, lsp_channels.len());
+            lsp_channel_ready = true;
+            break;
+        }
+        tracing::debug!("LSP channels not yet usable, waiting...");
         tokio::time::sleep(Duration::from_secs(1)).await;
     }
     if !lsp_channel_ready {
-        tracing::warn!("LSP channel did not become live within 30s; payments may fail until the LSP reconnects.");
+        tracing::warn!("No LSP channel became live within 30s; payments may fail until an LSP reconnects.");
     }
 
     // spawn event loop

@@ -12,11 +12,6 @@ use axum::{
 };
 use serde_json::json;
 use thiserror::Error;
-use ldk_node::bitcoin::secp256k1::PublicKey;
-use ldk_node::lightning::ln::msgs::SocketAddress;
-
-
-
 use crate::config::AppConfig;
 
 #[derive(Deserialize)]
@@ -58,20 +53,7 @@ pub struct AppState {
 }
 
 
-#[derive(Deserialize, Debug)]
-pub struct LspInfoResponse {
-    pub uris: Vec<String>,
-    pub min_initial_lsp_balance_sat: String,
-    // Add other fields as needed
-}
-
-pub struct LspConfig {
-    pub node_id: PublicKey,
-    pub address: SocketAddress,
-}
-
-
-// Note: Replace `sqlx::Error` with `rusqlite::Error` or `anyhow::Error` 
+// Note: Replace `sqlx::Error` with `rusqlite::Error` or `anyhow::Error`
 // depending on what your `state.db.insert_order` function actually returns.
 #[derive(Error, Debug)]
 pub enum AppError {
