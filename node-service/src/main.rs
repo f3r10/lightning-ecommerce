@@ -56,7 +56,7 @@ async fn main() -> anyhow::Result<()> {
     let mut lsp_channel_ready = false;
     for _ in 0..30u8 {
         let channels = node.list_channels();
-        let lsp_channel = channels.iter().find(|ch| ch.counterparty_node_id == lsp_node_id);
+        let lsp_channel = channels.iter().find(|ch| ch.counterparty.node_id == lsp_node_id);
         match lsp_channel {
             None => {
                 tracing::info!("No existing LSP channel — will open JIT on first payment.");
