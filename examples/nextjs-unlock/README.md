@@ -57,9 +57,9 @@ Copy those two values — you need them in the next step.
 Create (or edit) `.env` in the repo root:
 
 ```dotenv
-LSP_NODE_ID=<paste from lsp-service output>
-LSP_ADDRESS=127.0.0.1:9737
-LSP_TOKEN=
+LSP_1_NODE_ID=<paste from lsp-service output>
+LSP_1_ADDRESS=127.0.0.1:9737
+LSP_1_TOKEN=
 ADMIN_API_KEY=test123
 PORT=3001
 ```
