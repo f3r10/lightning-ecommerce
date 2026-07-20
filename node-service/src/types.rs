@@ -1,5 +1,7 @@
 use std::sync::Arc;
-use std::sync::atomic::AtomicUsize;
+use std::sync::Mutex;
+use std::collections::HashSet;
+use ldk_node::lightning::ln::types::ChannelId;
 
 use ldk_node::Node;
 use serde::Deserialize;
@@ -47,9 +49,9 @@ pub struct AppState {
     pub node: Arc<Node>,
     pub db: Arc<AppDb>,
     pub config: AppConfig,
-    /// Number of JIT channels currently opening. Incremented on ChannelPending,
-    /// decremented on ChannelReady. Used to surface "opening_channel" status.
-    pub channel_pending_count: Arc<AtomicUsize>,
+    /// Set of channel IDs currently opening via JIT. Inserted on ChannelPending,
+    /// removed on ChannelReady or ChannelClosed. Used to surface "opening_channel" status.
+    pub jit_channels_pending: Arc<Mutex<HashSet<ChannelId>>>,
 }
 
 

@@ -73,7 +73,7 @@ pub async fn get_invoice(
         .ok_or_else(|| anyhow::anyhow!("invoice not found"))?;
 
     let status = if order.status == "pending"
-        && state.channel_pending_count.load(Ordering::Relaxed) > 0
+        && !state.jit_channels_pending.lock().unwrap().is_empty()
     {
         "opening_channel".to_string()
     } else {
