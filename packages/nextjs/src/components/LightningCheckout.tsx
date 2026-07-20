@@ -101,6 +101,7 @@ export function LightningCheckout({
   className,
 }: LightningCheckoutProps) {
   const [checkoutState, setCheckoutState] = useState<CheckoutState>("idle");
+  const [channelOpening, setChannelOpening] = useState(false);
 
   const { invoice, createInvoice, error: invoiceError, reset } = useInvoice();
 
@@ -129,6 +130,13 @@ export function LightningCheckout({
     },
   );
 
+  // Once the channel-opening banner is shown, keep it visible until the payment
+  // lands — even if a poll in between briefly returns "pending" again.
+  useEffect(() => {
+    if (paymentStatus === "opening_channel") setChannelOpening(true);
+    if (paymentStatus === "succeeded") setChannelOpening(false);
+  }, [paymentStatus]);
+
   const handlePay = () => {
     setCheckoutState("loading");
     const options: CreateInvoiceRequest = {
@@ -143,6 +151,7 @@ export function LightningCheckout({
   const handleReset = () => {
     reset();
     setCheckoutState("idle");
+    setChannelOpening(false);
   };
 
   const defaultButtonLabel =
@@ -174,7 +183,7 @@ export function LightningCheckout({
   if (checkoutState === "awaiting" && invoice) {
     return (
       <div className={className} style={styles.container}>
-        {paymentStatus === "opening_channel" ? (
+        {(paymentStatus === "opening_channel" || channelOpening) ? (
           <p style={styles.openingChannelText}>
             ⚡ Opening Lightning channel… this takes ~30 s
           </p>
