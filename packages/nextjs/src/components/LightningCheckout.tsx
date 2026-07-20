@@ -151,6 +151,7 @@ export function LightningCheckout({
   const handleReset = () => {
     reset();
     setCheckoutState("idle");
+    setChannelOpening(false);
   };
 
   const defaultButtonLabel =
