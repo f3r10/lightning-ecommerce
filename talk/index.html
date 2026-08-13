@@ -1,0 +1,543 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LSPS2 Beyond Mobile — Building a Self-Custodial Lightning Checkout for the Web</title>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/monokai.css">
+
+<style>
+:root{
+  --bg:#0b0e17; --card:#171b29; --card-light:#1e2438;
+  --orange:#f7931a; --purple:#8b5cf6; --green:#22c55e; --red:#ef4444;
+  --white:#f5f5f7; --muted:#8b92a6; --line:#3a4055; --code-bg:#0d111c;
+}
+html, body { background: var(--bg); }
+.reveal { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Helvetica, Arial, sans-serif; color: var(--white); }
+.reveal .slides section { text-align:left; padding:0; height:100% !important; display:flex !important; flex-direction:column; justify-content:flex-start; }
+.reveal .slides { text-align:left; }
+
+.kicker{ color:var(--orange); font-weight:700; font-size:0.55em; letter-spacing:.14em; text-transform:uppercase; margin:0 0 .35em 0; }
+.stitle{ font-size:1.7em; font-weight:800; margin:0 0 .3em 0; color:var(--white); line-height:1.15; }
+.rule{ width:64px; height:5px; background:var(--orange); border-radius:3px; margin:0 0 .7em 0; }
+.head{ margin-bottom: 0.4em; flex: 0 0 auto; }
+.content{ flex:1 1 auto; display:flex; flex-direction:column; justify-content:center; width:100%; }
+
+.box{ background:var(--card); border:1.5px solid var(--line); border-radius:14px; padding:28px 32px; box-sizing:border-box; }
+.box.light{ background:var(--card-light); }
+.box.o{ border-color:var(--orange); }
+.box.p{ border-color:var(--purple); }
+.box.g{ border-color:var(--green); }
+.box.r{ border-color:var(--red); }
+.box h3{ margin:0 0 .35em 0; font-size:1.6em; letter-spacing:.02em; }
+.box p{ margin:0; font-size:1.2em; color:var(--muted); line-height:1.5; }
+.box .big{ font-size:1.8em; font-weight:800; }
+
+.grid{ display:grid; gap:28px; }
+.grid3{ grid-template-columns:repeat(3,1fr); }
+.grid4{ grid-template-columns:repeat(4,1fr); }
+.grid6{ grid-template-columns:repeat(6,1fr); }
+
+.stack{ margin:0; padding:0; list-style:none; }
+.stack li{ font-size:0.55em; margin:.35em 0; padding-left:1.3em; position:relative; }
+.stack li::before{ content:"—"; position:absolute; left:0; color:var(--orange); }
+
+/* code */
+.codebox{ background:var(--code-bg); border:1px solid #2a3045; border-radius:12px; overflow:hidden; }
+.codebox .label{ font-size:0.46em; color:var(--muted); font-weight:700; letter-spacing:.06em; text-transform:uppercase; padding:12px 20px 0 20px; }
+.reveal .codebox pre{ margin:0; box-shadow:none; width:100%; background:transparent; }
+.reveal .codebox pre code{ background:transparent !important; font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; border-radius:0; max-height:none; padding:22px 26px; }
+
+.callout{ background:var(--card-light); border:1.5px solid var(--orange); border-radius:14px; padding:28px 30px; }
+.callout h4{ margin:0 0 .45em 0; color:var(--orange); font-size:0.75em; }
+.callout p{ margin:.4em 0; font-size:0.56em; color:var(--white); line-height:1.55; }
+
+/* diagram primitives (canvas is logical 1280x720, positioned in px) */
+.stage{ position:relative; width:1180px; height:560px; margin:0 auto; }
+.node{ position:absolute; display:flex; align-items:center; justify-content:center; text-align:center; border-radius:10px; font-weight:700; font-size:18px; }
+.dashed{ position:absolute; border-left:1.5px dashed var(--line); }
+.arrow{ position:absolute; height:2.5px; }
+.arrow.right::after{ content:""; position:absolute; right:-1px; top:-6px; border-style:solid; border-width:7px 0 7px 12px; }
+.arrow.left::before{ content:""; position:absolute; left:-1px; top:-6px; border-style:solid; border-width:7px 12px 7px 0; }
+.label-c{ position:absolute; text-align:center; font-size:16px; }
+.sub-c{ position:absolute; text-align:center; font-size:13px; font-style:italic; color:var(--muted); }
+
+.muted-stroke{ background:var(--muted); }
+.muted-stroke.arrow.right::after{ border-color:transparent transparent transparent var(--muted); }
+.muted-stroke.arrow.left::before{ border-color:transparent var(--muted) transparent transparent; }
+.orange-stroke{ background:var(--orange); }
+.orange-stroke.arrow.right::after{ border-color:transparent transparent transparent var(--orange); }
+.orange-stroke.arrow.left::before{ border-color:transparent var(--orange) transparent transparent; }
+
+/* fragment-driven step coloring for the payment-flow slide */
+.step{ transition: opacity .25s ease; }
+.step .lbl{ color: var(--muted); font-weight:600; }
+.step .ln{ background: var(--muted) !important; }
+.step .ln.arrow.right::after{ border-color:transparent transparent transparent var(--muted) !important; }
+.step .box-el{ border-color: var(--line) !important; }
+.fragment.current-fragment .lbl{ color: var(--orange) !important; font-weight:800; }
+.fragment.current-fragment .ln{ background: var(--orange) !important; }
+.fragment.current-fragment .ln.arrow.right::after{ border-color:transparent transparent transparent var(--orange) !important; }
+.fragment.current-fragment .box-el{ border-color: var(--orange) !important; background: var(--card-light) !important; }
+
+.reveal .progress{ color:var(--orange); }
+.reveal .controls{ color:var(--orange); }
+.footer-brand{ position:absolute; bottom:14px; left:24px; font-size:11px; color:var(--muted); }
+</style>
+</head>
+<body>
+<div class="reveal">
+<div class="slides">
+
+<!-- ===================== SLIDE 1 — TITLE ===================== -->
+<section data-background-color="#0b0e17" style="text-align:center; justify-content:center; align-items:center;">
+  <div style="font-size:5.2em; color:var(--orange); margin-top:0.1em;">⚡</div>
+  <h1 style="font-size:2.3em; font-weight:800; margin:0.2em 0 0 0;">LSPS2 Beyond Mobile</h1>
+  <p style="font-size:1.05em; color:var(--orange); margin:0.35em 0;">Building a Self-Custodial Lightning Checkout for the Web</p>
+  <p style="font-size:0.65em; color:var(--muted); max-width:70%; margin:0.7em auto;">
+    Bringing JIT channel liquidity — ldk-node + LSPS2 (bLIP-52) — to any Next.js application
+  </p>
+  <p style="font-size:0.5em; color:var(--muted); margin-top:2.2em;">github.com/f3r10/lightning-ecommerce</p>
+  <aside class="notes">
+    Introduce yourself and the one-line pitch: accepting Lightning on a website today means either running your own
+    node or trusting a custodian — mobile wallets solved this problem years ago, and this talk shows how to bring
+    that same solution to web apps. Mention the project is open source (lightning-ecommerce) and that the talk
+    mixes protocol explanation, live code, and a demo. Keep this to about 30 seconds — the budget is tight.
+  </aside>
+</section>
+
+<!-- ===================== SLIDE 2 — THE PROBLEM ===================== -->
+<section data-background-color="#0b0e17">
+  <div class="head"><div class="kicker">The Problem</div><div class="stitle">Two Options Today — Neither Is Great</div><div class="rule"></div></div>
+  <div class="content">
+  <div class="grid grid3" style="grid-template-columns:1fr 1fr; max-width:1180px; margin:0 auto; width:100%;">
+    <div class="box r"><h3>🖥️ Run Your Own Node</h3><p>Inbound liquidity · uptime · rebalancing</p></div>
+    <div class="box r"><h3>🔐 Use a Custodial Provider</h3><p>Someone else holds your keys</p></div>
+  </div>
+  <p style="text-align:center; font-size:0.7em; color:var(--muted); font-style:italic; margin:1.3em 0 0.7em;">but mobile already solved this ↓</p>
+  <div class="box light g" style="max-width:960px; margin:0 auto;">
+    <h3 style="text-align:center;">📱 Mobile Already Solved This: JIT Channels</h3>
+    <p style="text-align:center;">Phoenix · Mutiny — zero upfront liquidity, self-custody</p>
+  </div>
+  <p style="text-align:center; font-size:0.7em; color:var(--muted); font-style:italic; margin:1.3em 0 0.7em;">...but the web never got this ↓</p>
+  <div class="box o" style="max-width:560px; margin:0 auto;">
+    <h3 class="big" style="text-align:center;">🌐 The Web: ?</h3>
+  </div>
+  </div>
+  <aside class="notes">
+    Walk through both existing options and why each is a real cost: self-hosting means you're an infrastructure
+    operator before you've taken a single payment; custodial means you've reintroduced the trusted third party
+    Bitcoin was built to remove. Point out that Phoenix and Mutiny users don't think about any of this — they open
+    the app, receive a payment, and a channel just appears. That's Just-In-Time liquidity, production-proven on
+    mobile for years. Hook: nobody built the web equivalent — until now. Target about 90 seconds.
+  </aside>
+</section>
+
+<!-- ===================== SLIDE 3 — WHY LDK-NODE ===================== -->
+<section data-background-color="#0b0e17">
+  <div class="head"><div class="kicker">Why ldk-node</div><div class="stitle">Choosing the Right Tool</div><div class="rule"></div></div>
+  <div class="content">
+  <div class="grid grid3" style="margin-bottom:28px;">
+    <div class="box"><h3>CLN / LND</h3><p>❌ Full daemons<br>❌ LSPS2 not built-in</p></div>
+    <div class="box"><h3>Breez SDK</h3><p>📱 Mobile-first<br>❌ Greenlight custody by default</p></div>
+    <div class="box light o" style="border-width:2.5px;"><h3>⭐ ldk-node</h3><p>✅ Embeddable Rust library<br>✅ Runs in-process<br>✅ LSPS2 built-in</p></div>
+  </div>
+  <div class="grid grid4" style="margin-bottom:28px;">
+    <div class="box p"><p style="color:var(--white); font-size:0.78em;"><b>add_liquidity_source()</b><br>multi-LSP fee comparison</p></div>
+    <div class="box p"><p style="color:var(--white); font-size:0.78em;"><b>next_event_async()</b><br>typed event loop</p></div>
+    <div class="box p"><p style="color:var(--white); font-size:0.78em;"><b>Persistence</b><br>+ chain sync included</p></div>
+    <div class="box p"><p style="color:var(--white); font-size:0.78em;"><b>BOLT12</b><br>on the same code path</p></div>
+  </div>
+  <div class="callout">
+    <p style="font-size:0.82em; margin:0;">⚠ <b>Honest tradeoff:</b> pre-1.0 — the API breaks between versions. But every break is a compiler error (Rust catches it). Pin a git rev.</p>
+  </div>
+  </div>
+  <aside class="notes">
+    CLN and LND are great, but they're daemons you operate separately from your app, and neither ships LSPS2 out
+    of the box — you'd build the client side yourself. Breez SDK is excellent but optimized for mobile wallets, and
+    its default key-custody model (Greenlight) isn't what you want for a merchant-owned node. ldk-node is a Rust
+    library you embed directly in your service — no separate process, no RPC boundary — and LSPS2 client support
+    is native. Be upfront about the tradeoff: it's pre-1.0, so APIs shift between releases, but because it's Rust
+    every breaking change surfaces as a compile error, not a silent runtime failure — pin a git rev and upgrade
+    deliberately. Target about 3 minutes.
+  </aside>
+</section>
+
+<!-- ===================== SLIDE 4 — LSPS2 PROTOCOL ===================== -->
+<section data-background-color="#0b0e17">
+  <div class="head"><div class="kicker">The Protocol</div><div class="stitle">LSPS2 in Two Messages (bLIP-52)</div><div class="rule"></div></div>
+  <div class="content">
+  <p style="text-align:center; font-size:0.5em; color:var(--muted); margin-bottom:16px;">Over LSPS0 — the existing Lightning peer connection. No new network connection.</p>
+  <div class="stage" style="height:600px;">
+    <div class="node box p" style="left:60px; top:0px; width:230px; height:80px; font-size:23px;">🧑 Client</div>
+    <div class="node box p" style="left:890px; top:0px; width:230px; height:80px; font-size:23px;">🏦 LSP</div>
+    <div class="dashed" style="left:175px; top:80px; height:420px;"></div>
+    <div class="dashed" style="left:1005px; top:80px; height:420px;"></div>
+
+    <div class="label-c" style="left:175px; top:108px; width:830px; margin-left:-415px; color:var(--white); font-weight:700; font-size:24px;">① lsps2.get_info</div>
+    <div class="arrow right orange-stroke" style="left:175px; top:154px; width:830px;"></div>
+
+    <div class="label-c" style="left:175px; top:208px; width:830px; margin-left:-415px; color:var(--white); font-weight:700; font-size:24px;">fee schedule returned</div>
+    <div class="arrow left muted-stroke" style="left:175px; top:254px; width:830px;"></div>
+
+    <div class="label-c" style="left:175px; top:308px; width:830px; margin-left:-415px; color:var(--white); font-weight:700; font-size:24px;">② lsps2.buy</div>
+    <div class="arrow right orange-stroke" style="left:175px; top:354px; width:830px;"></div>
+
+    <div class="label-c" style="left:175px; top:408px; width:830px; margin-left:-415px; color:var(--white); font-weight:700; font-size:24px;">phantom SCID returned</div>
+    <div class="arrow left muted-stroke" style="left:175px; top:454px; width:830px;"></div>
+
+    <div class="box light o" style="position:absolute; left:140px; top:498px; width:900px; text-align:center; padding:20px 24px;">
+      <p style="color:var(--white); font-size:0.62em; margin:0;">Phantom SCID → encoded as a route hint in the BOLT11 invoice</p>
+    </div>
+  </div>
+  </div>
+  <aside class="notes">
+    LSPS2 rides on top of LSPS0, which is just a peer-messaging layer over an existing Lightning connection — no
+    new sockets, no new transport, it's a message type on a connection you already have. The negotiation is exactly
+    two round trips: get_info tells the client what the channel will cost, buy locks that price in and gets back a
+    short channel ID that doesn't correspond to a real channel yet. That phantom SCID gets embedded as a route hint
+    in the invoice the client hands to the payer — from the payer's perspective it looks like a completely normal
+    channel to route through. Target about 3 minutes.
+  </aside>
+</section>
+
+<!-- ===================== SLIDE 5 — PAYMENT FLOW (ANIMATED) ===================== -->
+<section data-background-color="#0b0e17">
+  <div class="head"><div class="kicker">The Payment Flow</div><div class="stitle">From Phantom SCID to Open Channel</div><div class="rule"></div></div>
+  <div class="content">
+  <div class="stage" style="height:610px;">
+    <div class="node box p" style="left:20px; top:0px; width:220px; height:60px; font-size:19px;">💳 Payer</div>
+    <div class="node box p" style="left:490px; top:0px; width:220px; height:60px; font-size:19px;">🏦 LSP</div>
+    <div class="node box p" style="left:940px; top:0px; width:220px; height:60px; font-size:19px;">🏪 Merchant Node</div>
+    <div class="dashed" style="left:130px; top:52px; height:490px;"></div>
+    <div class="dashed" style="left:600px; top:52px; height:490px;"></div>
+    <div class="dashed" style="left:1050px; top:52px; height:490px;"></div>
+
+    <!-- step 1 -->
+    <div class="step fragment" data-fragment-index="0">
+      <div class="label-c lbl" style="left:130px; top:74px; width:470px; font-size:19px;">① HTLC via phantom SCID</div>
+      <div class="ln arrow right muted-stroke" style="left:130px; top:112px; width:470px;"></div>
+    </div>
+
+    <!-- step 2 -->
+    <div class="step fragment" data-fragment-index="1">
+      <div class="box-el box" style="position:absolute; left:360px; top:148px; width:480px; height:80px; border:1.5px solid var(--line); padding:8px;">
+        <p style="margin:0; font-size:0.44em; color:var(--white); text-align:center; line-height:1.35;"><b>② Holds HTLC</b><br>prepares funding tx — does NOT broadcast</p>
+      </div>
+    </div>
+
+    <!-- step 3 -->
+    <div class="step fragment" data-fragment-index="2">
+      <div class="label-c lbl" style="left:600px; top:248px; width:450px; font-size:19px;">③ Opens zero-conf anchor channel</div>
+      <div class="ln arrow right muted-stroke" style="left:600px; top:286px; width:450px;"></div>
+      <div class="box-el box" style="position:absolute; left:585px; top:300px; width:480px; height:44px; border:1.5px solid var(--line); padding:0;">
+        <p style="margin:0; font-size:0.44em; color:var(--white); text-align:center; line-height:44px;">ChannelPending&nbsp;&nbsp;→&nbsp;&nbsp;ChannelReady</p>
+      </div>
+    </div>
+
+    <!-- step 4 -->
+    <div class="step fragment" data-fragment-index="3">
+      <div class="label-c lbl" style="left:600px; top:363px; width:450px; font-size:19px;">④ Forwards HTLC, minus fee</div>
+      <div class="ln arrow right muted-stroke" style="left:600px; top:401px; width:450px;"></div>
+      <div class="box-el box" style="position:absolute; left:870px; top:415px; width:400px; height:44px; border:1.5px solid var(--line); padding:0;">
+        <p style="margin:0; font-size:0.44em; color:var(--white); text-align:center; line-height:44px;">PaymentReceived → reveals preimage</p>
+      </div>
+    </div>
+
+    <!-- step 5 -->
+    <div class="step fragment" data-fragment-index="4">
+      <div class="ln" style="position:absolute; left:599px; top:445px; width:2px; height:38px; background:var(--muted);"></div>
+      <div class="box-el box" style="position:absolute; left:410px; top:485px; width:380px; height:48px; border:1.5px solid var(--line); padding:0;">
+        <p style="margin:0; font-size:0.44em; font-weight:700; color:var(--white); text-align:center; line-height:48px;">⛓ Broadcasts funding tx NOW</p>
+      </div>
+      <div class="box light g" style="position:absolute; left:10px; top:547px; width:1160px; padding:10px 16px;">
+        <p style="margin:0; font-size:0.44em; font-weight:700; color:var(--white); text-align:center;">✅ Settled. No on-chain cost if no payment arrives — the channel only exists because a payment paid for it.</p>
+      </div>
+    </div>
+  </div>
+  </div>
+  <aside class="notes">
+    This is the core mechanic of the whole talk, so slow down here and click through the five steps. (1) The
+    payment doesn't wait for the channel — the channel waits for the payment. The payer's wallet routes toward a
+    route hint pointing at a phantom SCID. (2) The LSP is now holding real value as collateral and prepares, but
+    does not broadcast, the funding transaction — nothing on-chain yet, so no cost if this never completes.
+    (3) Because the LSP controls that unbroadcast funding tx, it can safely open a zero-conf anchor channel
+    straight to the merchant — both sides see ChannelPending then ChannelReady before anything is on-chain.
+    (4) The LSP forwards the originally-held HTLC minus its fee; the merchant's node fires PaymentReceived and
+    reveals the preimage, proof the payment happened. (5) Only now, with proof the channel is worth funding, does
+    the LSP broadcast the funding transaction. Punchline: this inverts "provision liquidity, then hope someone
+    pays" into "get paid, then provision liquidity" — that's what makes zero-upfront-cost self-custody possible.
+    Target about 3 minutes total across the five clicks.
+  </aside>
+</section>
+
+<!-- ===================== SLIDE 6 — NODE-SERVICE ARCHITECTURE ===================== -->
+<section data-background-color="#0b0e17">
+  <div class="head"><div class="kicker">Architecture</div><div class="stitle">How We Built It: node-service</div><div class="rule"></div></div>
+  <div class="content">
+  <div class="stage" style="height:560px;">
+    <div class="box p" style="position:absolute; left:0px; top:170px; width:230px; height:180px; display:flex; align-items:center; justify-content:center;">
+      <p style="margin:0; font-size:0.6em; text-align:center; color:var(--white);">⚛️ <b>Next.js App</b><br><br>&lt;LightningCheckout/&gt;</p>
+    </div>
+    <div class="ln arrow right muted-stroke" style="left:230px; top:259px; width:55px;"></div>
+    <div class="sub-c" style="left:230px; top:230px; width:55px;">HTTP</div>
+
+    <div class="box o" style="position:absolute; left:295px; top:110px; width:450px;">
+      <h3 style="text-align:center; font-size:0.48em;">🦀 node-service (Rust + Axum)</h3>
+      <div class="box light" style="margin-top:18px; padding:12px 16px;"><p style="font-size:0.42em; color:var(--white); margin:0;"><b>POST /api/invoice</b><br><span style="color:var(--muted);">full LSPS2 negotiation internally</span></p></div>
+      <div class="box light" style="margin-top:12px; padding:12px 16px;"><p style="font-size:0.42em; color:var(--white); margin:0;"><b>GET /api/invoice/:hash</b><br><span style="color:var(--muted);">pending · opening_channel · succeeded</span></p></div>
+    </div>
+
+    <div class="ln arrow right muted-stroke" style="left:745px; top:259px; width:55px;"></div>
+    <div class="sub-c" style="left:745px; top:230px; width:55px;">wraps</div>
+    <div class="box p" style="position:absolute; left:800px; top:214px; width:210px; height:90px; display:flex; align-items:center; justify-content:center;">
+      <p style="margin:0; font-size:0.5em; font-weight:700;">⚙️ ldk-node</p>
+    </div>
+
+    <div class="ln" style="position:absolute; left:980px; top:259px; width:55px; height:2.5px; background:var(--muted);"></div>
+    <div class="ln arrow right muted-stroke" style="left:1035px; top:70px; width:65px; transform-origin:0 0; transform:rotate(38deg);"></div>
+    <div class="ln arrow right muted-stroke" style="left:1035px; top:259px; width:65px;"></div>
+    <div class="ln arrow right muted-stroke" style="left:1035px; top:448px; width:65px; transform-origin:0 0; transform:rotate(-38deg);"></div>
+
+    <div class="box g" style="position:absolute; left:1100px; top:35px; width:120px; height:72px; display:flex; align-items:center; justify-content:center; font-size:16px;">LSP_1</div>
+    <div class="box g" style="position:absolute; left:1100px; top:223px; width:120px; height:72px; display:flex; align-items:center; justify-content:center; font-size:16px;">LSP_2</div>
+    <div class="box g" style="position:absolute; left:1100px; top:412px; width:120px; height:72px; display:flex; align-items:center; justify-content:center; font-size:16px;">LSP_3</div>
+    <div class="sub-c" style="left:800px; top:508px; width:400px;">LSPS0 — cheapest wins</div>
+  </div>
+  <p style="text-align:center; font-size:0.46em; color:var(--muted); margin-top:16px;">
+    Multi-LSP config via indexed env vars: <b>LSP_1_NODE_ID</b> · <b>LSP_1_ADDRESS</b> · <b>LSP_2_NODE_ID</b> · …
+  </p>
+  </div>
+  <aside class="notes">
+    node-service is a small Axum HTTP service that sits in front of ldk-node — it exposes exactly two endpoints an
+    application needs. Invoice creation is a single call, receive_via_jit_channel, which does the get_info/buy
+    negotiation with the LSP under the hood so the caller never touches LSPS2 directly. Configuration is
+    deliberately boring: numbered environment variables let you register multiple LSPs, and ldk-node's internal
+    fee comparison picks the cheapest one at invoice time — no extra code required on our side. Target about
+    2 minutes.
+  </aside>
+</section>
+
+<!-- ===================== SLIDE 7 — CODE: BUILDER ===================== -->
+<section data-background-color="#0b0e17">
+  <div class="head"><div class="kicker">Under the Hood</div><div class="stitle">Code: Registering LSPs</div><div class="rule"></div></div>
+  <div class="content">
+  <div style="display:flex; gap:32px; align-items:center;">
+    <div class="codebox" style="flex:1.7;">
+      <pre><code class="language-rust" data-line-numbers="2" style="font-size:0.64em;">for (node_id, address, token) in parsed_lsps {
+    builder.add_liquidity_source(node_id, address, token, true);
+}
+let node = builder.build(entropy)?;</code></pre>
+    </div>
+    <div class="callout" style="flex:1;">
+      <h4>One call per LSP</h4>
+      <p>Multi-LSP fee comparison is automatic — no application code needed to compare offers.</p>
+    </div>
+  </div>
+  </div>
+  <aside class="notes">
+    This is the entire multi-LSP setup — loop over your configured LSPs and call add_liquidity_source once for
+    each, then build the node. ldk-node handles querying every registered LSP's fee schedule and choosing the
+    cheapest one when an invoice is actually requested, so there's no comparison logic anywhere in our application
+    code. The trailing boolean marks it as a JIT-channel-capable source. Keep the emphasis on how little code this
+    is.
+  </aside>
+</section>
+
+<!-- ===================== SLIDE 8 — CODE: EVENT LOOP ===================== -->
+<section data-background-color="#0b0e17">
+  <div class="head"><div class="kicker">Under the Hood</div><div class="stitle">Code: The Event Loop</div><div class="rule"></div></div>
+  <div class="content">
+  <div style="display:flex; gap:32px; align-items:center;">
+    <div class="codebox" style="flex:1.8;">
+      <pre><code class="language-rust" data-line-numbers="3,4,8,9" style="font-size:1.05em;">match node.next_event_async().await {
+    Event::ChannelPending { channel_id, .. } => {
+        jit_channels_pending.lock().unwrap()
+            .insert(channel_id);
+        node.event_handled()?;
+    }
+    Event::ChannelReady { channel_id, .. } => {
+        jit_channels_pending.lock().unwrap()
+            .remove(&channel_id);
+        node.event_handled()?;
+    }
+    // ...
+}</code></pre>
+    </div>
+    <div class="callout" style="flex:1;">
+      <h4>HashSet&lt;ChannelId&gt;, not a counter</h4>
+      <p>A counter would decrement on <b>any</b> payment received — even one over an existing channel — incorrectly clearing the JIT-opening state.</p>
+    </div>
+  </div>
+  </div>
+  <aside class="notes">
+    next_event_async gives a typed, awaitable event stream instead of polling or callbacks — match on the variant
+    and call event_handled to acknowledge it, which is how ldk-node knows it's safe to persist state and move on.
+    The detail worth calling out: jit_channels_pending is a HashSet&lt;ChannelId&gt;, not a counter. If it were a
+    counter, any PaymentReceived event — including a normal payment over a channel that already existed — would
+    decrement it and could incorrectly clear the "channel is opening" state. Keying by channel ID means only the
+    specific pending channel gets removed when it becomes ready.
+  </aside>
+</section>
+
+<!-- ===================== SLIDE 9 — CODE: OPENING_CHANNEL STATUS ===================== -->
+<section data-background-color="#0b0e17">
+  <div class="head"><div class="kicker">Under the Hood</div><div class="stitle">Code: Surfacing State to the Browser</div><div class="rule"></div></div>
+  <div class="content">
+  <div style="display:flex; gap:32px; align-items:center;">
+    <div style="flex:1.4; display:flex; flex-direction:column; gap:20px;">
+      <div class="codebox">
+        <div class="label">node-service (Rust)</div>
+        <pre><code class="language-rust" data-line-numbers="5" style="font-size:0.49em;">// GET /api/invoice/:hash
+let status = if order.status == "pending"
+    && !state.jit_channels_pending.lock().unwrap().is_empty()
+{
+    "opening_channel"
+} else {
+    &order.status
+};</code></pre>
+      </div>
+      <div class="codebox">
+        <div class="label">Frontend (React)</div>
+        <pre><code class="language-jsx" data-line-numbers="2,3" style="font-size:0.49em;">useEffect(() => {
+  if (paymentStatus === "opening_channel") setChannelOpening(true);
+  if (paymentStatus === "succeeded") setChannelOpening(false);
+}, [paymentStatus]);</code></pre>
+      </div>
+    </div>
+    <div class="callout" style="flex:1;">
+      <h4>Sticky flag</h4>
+      <p>Once the banner shows, it holds until <b>succeeded</b>.</p>
+      <p>Prevents a visible gap between ChannelReady firing and the payment status actually flipping to confirmed — without it the UI would flicker back to neutral.</p>
+    </div>
+  </div>
+  </div>
+  <aside class="notes">
+    The backend derives a synthetic opening_channel status by checking whether any channel is currently pending
+    while the order itself is still marked pending — it's a cheap read of the same HashSet from the event-loop
+    slide, not a new state machine. On the frontend, setChannelOpening only ever gets set true or false in these
+    two places — that's deliberate, it's a sticky flag. Without it there'd be a visible gap between the channel
+    becoming ready and the payment status flipping to succeeded, where the UI would flicker back to neutral before
+    showing success.
+  </aside>
+</section>
+
+<!-- ===================== SLIDE 10 — CODE: DEVELOPER-FACING COMPONENT ===================== -->
+<section data-background-color="#0b0e17">
+  <div class="head"><div class="kicker">The Payoff</div><div class="stitle">Code: What the Developer Actually Writes</div><div class="rule"></div></div>
+  <div class="content">
+  <div class="codebox" style="max-width:960px; margin:0 auto; width:100%;">
+    <pre><code class="language-jsx" style="font-size:1.3em;">&lt;LightningCheckout
+  description="Unlock premium content"
+  amount_msat={20_000_000}
+  onSuccess={(invoice) =&gt; setUnlocked(true)}
+/&gt;</code></pre>
+  </div>
+  <p style="text-align:center; font-size:0.7em; color:var(--muted); font-style:italic; margin:1.1em 0;">↓ all handled inside the component</p>
+  <div class="grid grid6">
+    <div class="box light p"><p style="font-size:0.8em; color:var(--white); text-align:center; margin:0;">🧾<br>Invoice</p></div>
+    <div class="box light p"><p style="font-size:0.8em; color:var(--white); text-align:center; margin:0;">🔳<br>QR</p></div>
+    <div class="box light p"><p style="font-size:0.8em; color:var(--white); text-align:center; margin:0;">⏱<br>Expiry countdown</p></div>
+    <div class="box light p"><p style="font-size:0.8em; color:var(--white); text-align:center; margin:0;">🔁<br>Polling</p></div>
+    <div class="box light p"><p style="font-size:0.8em; color:var(--white); text-align:center; margin:0;">📢<br>Channel banner</p></div>
+    <div class="box light p"><p style="font-size:0.8em; color:var(--white); text-align:center; margin:0;">♻️<br>Retry</p></div>
+  </div>
+  </div>
+  <aside class="notes">
+    Everything from the last three slides — invoice creation, status polling, the opening_channel banner logic —
+    is packaged behind this one component. A developer integrating Lightning payments into a Next.js app writes a
+    description, an amount, and a success callback; they never touch LSPS2, never think about JIT channels, never
+    manage polling intervals. That's the actual goal of the project: the JIT-channel complexity from the rest of
+    this talk should be invisible to the application developer, the same way it's invisible to a Phoenix wallet
+    user.
+  </aside>
+</section>
+
+<!-- ===================== SLIDE 11 — DEMO ===================== -->
+<section data-background-color="#0b0e17">
+  <div class="head"><div class="kicker">Live</div><div class="stitle">Demo: Pay-to-Unlock</div><div class="rule"></div></div>
+  <div class="content">
+  <div class="grid grid6">
+    <div class="box p"><p style="font-size:0.8em; text-align:center; margin:0;">🔒<br>Content Blurred</p></div>
+    <div class="box p"><p style="font-size:0.8em; text-align:center; margin:0;">💳<br>Click Pay</p></div>
+    <div class="box p"><p style="font-size:0.8em; text-align:center; margin:0;">🔳<br>QR Appears</p></div>
+    <div class="box p"><p style="font-size:0.8em; text-align:center; margin:0;">⌨️<br>Pay via CLI</p></div>
+    <div class="box light o"><p style="font-size:0.8em; text-align:center; margin:0;">⏳<br>Opening Channel…</p></div>
+    <div class="box p"><p style="font-size:0.8em; text-align:center; margin:0;">🔓<br>Content Revealed</p></div>
+  </div>
+  <p style="text-align:center; font-size:0.68em; color:var(--muted); font-style:italic; margin-top:2em;">
+    Live — content stays blurred until a real Lightning payment settles
+  </p>
+  </div>
+  <aside class="notes">
+    Walk through the example app live: blurred premium content, a Pay button that generates an invoice and shows a
+    QR code, then pay it from a CLI wallet to simulate a real payer. Narrate what's happening behind the scenes as
+    it happens — the LSP is holding the HTLC, opening a zero-conf channel, and only broadcasting once the merchant
+    node confirms — so the banner that appears is the opening_channel state from the earlier code slide made
+    visible. Have a fallback recording ready in case of live-demo network issues. Target about 3 minutes.
+  </aside>
+</section>
+
+<!-- ===================== SLIDE 12 — ROADMAP ===================== -->
+<section data-background-color="#0b0e17">
+  <div class="head"><div class="kicker">Roadmap</div><div class="stitle">What's Next</div><div class="rule"></div></div>
+  <div class="content">
+  <div class="grid grid4">
+    <div class="box o"><h3 style="font-size:0.85em;">🧾 BOLT12 Static Offers</h3><p>Merchant publishes once. JIT channel still opens on first payment — BOLT12 changes invoice negotiation, not the liquidity model.</p></div>
+    <div class="box o"><h3 style="font-size:0.85em;">🔧 rust-lightning PR #4463</h3><p>BOLT12 blinded paths carrying LSPS2 SCIDs.</p></div>
+    <div class="box o"><h3 style="font-size:0.85em;">🪝 LSPS5 Webhooks</h3><p>Hold HTLC → wake service → claim payment. A serverless merchant node.</p></div>
+    <div class="box o"><h3 style="font-size:0.85em;">🌉 Ark / bark</h3><p>bark 0.3.0 users can already pay our BOLT11 invoices today.</p></div>
+  </div>
+  </div>
+  <aside class="notes">
+    BOLT12 is the natural next step but it's worth being precise about what it changes: it replaces per-payment
+    invoice generation with a static offer the merchant publishes once, but the underlying JIT channel mechanism
+    from earlier in the talk is untouched — that work is tracked upstream in rust-lightning PR #4463, which
+    threads LSPS2 SCIDs through blinded paths. LSPS5 webhooks point toward an even more interesting future: a
+    merchant node that doesn't need to run continuously, waking only when a webhook fires to claim a held payment.
+    Ark interop isn't hypothetical — bark 0.3.0 can pay these BOLT11 invoices right now. Target about 1 minute.
+  </aside>
+</section>
+
+<!-- ===================== SLIDE 13 — CLOSING ===================== -->
+<section data-background-color="#0b0e17" style="text-align:center; justify-content:center; align-items:center;">
+  <p class="kicker" style="text-align:center;">Thank You</p>
+  <div style="font-size:4em; color:var(--orange); margin:0.2em 0;">⚡</div>
+  <p style="font-size:1.05em; font-weight:700; max-width:80%; margin:0.4em auto; line-height:1.4;">
+    The same mechanism that makes Phoenix work on mobile<br>now works on the web.
+  </p>
+  <div class="box light o" style="max-width:620px; margin:1.5em auto 0.6em; padding:18px 24px;">
+    <p style="margin:0; font-size:0.68em; font-weight:700;">🔗 github.com/f3r10/lightning-ecommerce</p>
+  </div>
+  <p style="font-size:0.5em; color:var(--muted); margin-top:1.1em;">Open source · LSPS2 Beyond Mobile</p>
+  <aside class="notes">
+    Close on the throughline of the whole talk: JIT liquidity isn't a mobile-specific trick, it's a general
+    protocol-level solution to the "who provisions the channel" problem, and lightning-ecommerce is proof it
+    drops cleanly into a standard Next.js app. Point people at the repo, mention it's genuinely usable today, not
+    a proof of concept, and hand off to Q&amp;A.
+  </aside>
+</section>
+
+</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/notes/notes.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/highlight.js"></script>
+<script>
+  Reveal.initialize({
+    width: 1280,
+    height: 720,
+    margin: 0.06,
+    hash: true,
+    controls: true,
+    progress: true,
+    center: false,
+    transition: 'slide',
+    plugins: [ RevealNotes, RevealHighlight ]
+  });
+</script>
+</body>
+</html>
