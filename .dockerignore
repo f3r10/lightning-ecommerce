@@ -1,0 +1,22 @@
+# Rust build artifacts — by far the largest thing to exclude
+target/
+
+# Node.js
+node_modules/
+packages/
+examples/
+
+# Runtime data — never bake into the image
+data/
+
+# Git history
+.git/
+
+# Local env files — secrets must be injected at runtime, not baked in
+.env
+*/.env
+
+# Docs and scratch files
+*.md
+*.txt
+_posts/
