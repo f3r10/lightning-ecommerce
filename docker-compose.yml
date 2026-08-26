@@ -1,0 +1,47 @@
+services:
+
+  lsp-service:
+    build:
+      context: .
+      dockerfile: lsp-service/Dockerfile
+    ports:
+      # Lightning peer port — payer-cli and node-service connect here
+      - "9737:9737"
+    volumes:
+      - lsp-data:/app/data
+    environment:
+      NETWORK: mutinynet
+      ESPLORA_URL: https://mutinynet.com/api
+      # Bind on all interfaces so the peer port is reachable within the Compose network
+      LISTEN_ADDRESS: "0.0.0.0:9737"
+      # Within the Compose network, node-service reaches this service by its
+      # service name. Override with a public IP/hostname for non-local deployments.
+      ADVERTISE_ADDRESS: "lsp-service:9737"
+      STORAGE_DIR: /app/data
+    restart: unless-stopped
+
+  node-service:
+    build:
+      context: .
+      dockerfile: node-service/Dockerfile
+    ports:
+      - "3001:3001"
+    volumes:
+      - node-data:/app/data
+    environment:
+      NETWORK: mutinynet
+      ESPLORA_URL: https://mutinynet.com/api
+      STORAGE_DIR: /app/data
+      PORT: "3001"
+      # lsp-service is reachable by its service name inside the Compose network
+      LSP_1_ADDRESS: "lsp-service:9737"
+      # These two come from the root .env file — see .env.example
+      LSP_1_NODE_ID: ${LSP_1_NODE_ID}
+      ADMIN_API_KEY: ${ADMIN_API_KEY}
+    depends_on:
+      - lsp-service
+    restart: unless-stopped
+
+volumes:
+  lsp-data:
+  node-data:
